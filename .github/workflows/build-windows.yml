@@ -1,6 +1,6 @@
 name: Build Windows EXE
 
-# Build the Windows installer + portable .exe on a real Windows machine.
+# Build the Windows portable .exe on a real Windows machine.
 # Runs automatically on every push to main, and can be started manually from
 # the GitHub "Actions" tab (Run workflow).
 on:
@@ -11,6 +11,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,19 +24,31 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        # Use `npm install` (not `npm ci`) so the correct platform-specific
-        # native binaries for Rollup/esbuild are resolved on the Windows runner.
-        # A lockfile generated on Linux omits the win32 binaries that `npm ci`
-        # would require, which otherwise fails the Vite build.
-        run: npm install --no-audit --no-fund
+        # `npm install` (not `npm ci`) so the correct platform-specific native
+        # binaries for Rollup/esbuild are resolved on the Windows runner.
+        run: npm install --no-audit --no-fund 2>&1 | tee install.log
 
       - name: Build app bundles
-        run: npm run build
+        run: npm run build 2>&1 | tee build.log
 
-      - name: Package Windows .exe (installer + portable)
-        run: npx electron-builder --win --publish never
+      - name: Package Windows .exe (portable)
+        env:
+          DEBUG: electron-builder
+        run: npx electron-builder --win --publish never 2>&1 | tee package.log
 
-      - name: Upload .exe artifacts
+      - name: Upload build logs (always, for debugging)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            install.log
+            build.log
+            package.log
+          if-no-files-found: warn
+
+      - name: Upload .exe artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: NexusPOS-Windows

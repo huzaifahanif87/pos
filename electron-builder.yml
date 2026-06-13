@@ -10,13 +10,10 @@ asarUnpack:
   - resources/**
 win:
   target:
-    - target: nsis
-      arch:
-        - x64
     - target: portable
       arch:
         - x64
-  artifactName: ${productName}-${version}-${target}.${ext}
+  artifactName: ${productName}-${version}-portable.${ext}
 nsis:
   oneClick: false
   perMachine: false
