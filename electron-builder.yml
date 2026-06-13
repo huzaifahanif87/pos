@@ -1,0 +1,39 @@
+appId: com.nexuspos.app
+productName: Nexus POS
+directories:
+  output: release/${version}
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  - resources/**
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${target}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Nexus POS
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Office
+  artifactName: ${productName}-${version}.${ext}
+mac:
+  target:
+    - dmg
+  category: public.app-category.business
+publish:
+  provider: generic
+  url: https://example.com/updates/
