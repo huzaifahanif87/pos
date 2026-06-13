@@ -21,7 +21,11 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm ci
+        # Use `npm install` (not `npm ci`) so the correct platform-specific
+        # native binaries for Rollup/esbuild are resolved on the Windows runner.
+        # A lockfile generated on Linux omits the win32 binaries that `npm ci`
+        # would require, which otherwise fails the Vite build.
+        run: npm install --no-audit --no-fund
 
       - name: Build app bundles
         run: npm run build
