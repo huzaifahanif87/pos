@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import clsx from 'clsx'
 import { useApp } from '../store/app'
@@ -54,6 +54,63 @@ export function Field({ label, children, hint }: { label: string; children: Reac
       {children}
       {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
     </div>
+  )
+}
+
+/**
+ * Numeric input that keeps a local text buffer while focused so users can type
+ * fractional values (e.g. "1.5", "0.25") without the controlled value snapping
+ * back. Commits a parsed number via onChange on every valid keystroke.
+ */
+export function NumberInput({
+  value,
+  onChange,
+  allowDecimal = true,
+  className = 'input',
+  placeholder,
+  autoFocus,
+  min = 0
+}: {
+  value: number
+  onChange: (n: number) => void
+  allowDecimal?: boolean
+  className?: string
+  placeholder?: string
+  autoFocus?: boolean
+  min?: number
+}) {
+  const [buf, setBuf] = useState(value ? String(value) : '')
+  const [focused, setFocused] = useState(false)
+  useEffect(() => {
+    if (!focused) setBuf(value ? String(value) : '')
+  }, [value, focused])
+
+  const handle = (raw: string) => {
+    let cleaned = allowDecimal ? raw.replace(/[^0-9.]/g, '') : raw.replace(/[^0-9]/g, '')
+    if (allowDecimal) {
+      const parts = cleaned.split('.')
+      if (parts.length > 2) cleaned = parts[0] + '.' + parts.slice(1).join('')
+    }
+    setBuf(cleaned)
+    if (cleaned === '' || cleaned === '.') return onChange(0)
+    const n = parseFloat(cleaned)
+    if (!isNaN(n)) onChange(Math.max(min, n))
+  }
+
+  return (
+    <input
+      inputMode={allowDecimal ? 'decimal' : 'numeric'}
+      className={className}
+      value={buf}
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false)
+        setBuf(value ? String(value) : '')
+      }}
+      onChange={(e) => handle(e.target.value)}
+    />
   )
 }
 

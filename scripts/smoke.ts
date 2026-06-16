@@ -5,8 +5,8 @@ import { join } from 'node:path'
 import { initDb } from '../electron/main/db/datastore'
 import { seedIfEmpty } from '../electron/main/db/seed'
 import { checkout, listSales, refundSale } from '../electron/main/db/repositories/sales'
-import { listProducts, inventoryValue } from '../electron/main/db/repositories/products'
-import { listCustomers, recordPayment, getLedger, totalReceivable } from '../electron/main/db/repositories/parties'
+import { listProducts, inventoryValue, saveProduct, saveCategory } from '../electron/main/db/repositories/products'
+import { listCustomers, recordPayment, getLedger, totalReceivable, saveCustomer, saveVendor } from '../electron/main/db/repositories/parties'
 import { savePurchase } from '../electron/main/db/repositories/purchases'
 import { saveExpense } from '../electron/main/db/repositories/expenses'
 import { getDashboard, getProfitLoss, getBalanceSheet, getSalesSummary } from '../electron/main/db/repositories/reports'
@@ -26,12 +26,21 @@ function assert(cond: boolean, msg: string) {
 async function main() {
   const dir = mkdtempSync(join(tmpdir(), 'nexus-pos-test-'))
   initDb(dir)
-  console.log('\n[1] Seeding…')
+  console.log('\n[1] Seeding users + creating test data…')
   await seedIfEmpty()
+  const cat = await saveCategory({ name: 'Test' })
+  // whole-unit product + a by-weight (decimal) product
+  await saveProduct({ name: 'Widget', sku: 'W1', categoryId: cat._id, unit: 'pcs', costPrice: 4, salePrice: 10, stock: 40 })
+  await saveProduct({ name: 'Gadget', sku: 'G1', categoryId: cat._id, unit: 'box', costPrice: 6, salePrice: 15, stock: 30 })
+  const flour = await saveProduct({ name: 'Flour', sku: 'F1', categoryId: cat._id, unit: 'kg', costPrice: 1.2, salePrice: 2, stock: 50 })
+  assert(flour.allowDecimal === true, 'kg product auto-flagged allowDecimal')
+  await saveCustomer({ name: 'Walk-in', openingBalance: 0 })
+  await saveCustomer({ name: 'John', phone: '111', openingBalance: 120 })
+  await saveVendor({ name: 'Acme Supply', openingBalance: 0 })
   const products = await listProducts()
-  assert(products.length >= 20, `seeded ${products.length} products`)
+  assert(products.length === 3, `created ${products.length} products`)
   const customers = await listCustomers()
-  assert(customers.length >= 3, `seeded ${customers.length} customers`)
+  assert(customers.length === 2, `created ${customers.length} customers`)
 
   console.log('\n[2] Auth…')
   const ok = await login('admin', '1234')
@@ -53,6 +62,18 @@ async function main() {
   assert(Math.abs(sale.profit - (p.salePrice - p.costPrice) * 2) < 0.01, 'profit computed correctly')
   const afterP = (await listProducts()).find((x) => x._id === p._id)!
   assert(afterP.stock === beforeStock - 2, `stock ${beforeStock} -> ${afterP.stock}`)
+
+  console.log('\n[3b] Decimal/weight checkout (1.5 kg flour)…')
+  const flourBefore = (await listProducts()).find((x) => x._id === flour._id)!.stock
+  const wSale = await checkout({
+    items: [{ productId: flour._id, qty: 1.5, price: flour.salePrice, discount: 0 }],
+    discount: 0,
+    paid: 3,
+    paymentMethod: 'cash'
+  })
+  assert(Math.abs(wSale.total - 3) < 0.001, `1.5kg x ${flour.salePrice} = ${wSale.total.toFixed(2)}`)
+  const flourAfter = (await listProducts()).find((x) => x._id === flour._id)!.stock
+  assert(Math.abs(flourAfter - (flourBefore - 1.5)) < 0.0001, `flour stock ${flourBefore} -> ${flourAfter} (−1.5)`)
 
   console.log('\n[4] Credit sale -> receivable ledger…')
   const cust = customers.find((c) => c.name !== 'Walk-in Customer')!

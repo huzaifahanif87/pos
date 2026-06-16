@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Product } from '@shared/types'
+import { isDecimalUnit } from '../lib/format'
 
 export interface CartLine {
   productId: string
@@ -11,6 +12,8 @@ export interface CartLine {
   taxRate: number
   stock: number
   trackStock: boolean
+  unit: string
+  allowDecimal: boolean
 }
 
 interface CartState {
@@ -59,7 +62,9 @@ export const useCart = create<CartState>((set, get) => ({
             discount: 0,
             taxRate: p.taxRate,
             stock: p.stock,
-            trackStock: p.trackStock
+            trackStock: p.trackStock,
+            unit: p.unit,
+            allowDecimal: p.allowDecimal ?? isDecimalUnit(p.unit)
           }
         ]
       })

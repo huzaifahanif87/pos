@@ -45,6 +45,8 @@ export interface Product extends BaseDoc {
   stock: number
   lowStockThreshold: number
   trackStock: boolean
+  /** Sold by weight/volume — allows fractional quantities (e.g. 1.5 kg, 0.25 ltr). */
+  allowDecimal?: boolean
   active: boolean
   color?: string
   description?: string

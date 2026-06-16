@@ -1,6 +1,6 @@
 import type { Product, StockMovement, StockMovementType, Category } from '@shared/types'
 import { getDb } from '../datastore'
-import { escapeRegex, now, round2 } from '../util'
+import { escapeRegex, isDecimalUnit, now, round2, round3 } from '../util'
 import type { ListQuery } from '@shared/ipc'
 
 export async function listCategories(): Promise<Category[]> {
@@ -53,6 +53,8 @@ export async function saveProduct(p: Partial<Product>): Promise<Product> {
     active: true,
     ...p
   }
+  // Default the decimal/weight flag from the unit when not explicitly set.
+  if (doc.allowDecimal === undefined) doc.allowDecimal = isDecimalUnit(doc.unit)
   const saved = await db.products.upsert(doc)
   if (isNew && saved.trackStock && saved.stock !== 0) {
     await recordStockMovement(saved._id, saved.name, 'opening', saved.stock, saved.stock)
@@ -95,7 +97,7 @@ export async function applyStockDelta(
   const db = getDb()
   const product = await db.products.findOne({ _id: productId })
   if (!product || !product.trackStock) return product
-  const newStock = round2(product.stock + delta)
+  const newStock = round3(product.stock + delta)
   const updated = await db.products.update(productId, { stock: newStock })
   await recordStockMovement(productId, product.name, type, delta, newStock, ref)
   return updated
@@ -105,8 +107,8 @@ export async function adjustStock(productId: string, qty: number, note?: string)
   const db = getDb()
   const product = await db.products.findOne({ _id: productId })
   if (!product) throw new Error('Product not found')
-  const newStock = round2(qty)
-  const delta = round2(newStock - product.stock)
+  const newStock = round3(qty)
+  const delta = round3(newStock - product.stock)
   const updated = await db.products.update(productId, { stock: newStock })
   await recordStockMovement(productId, product.name, 'adjustment', delta, newStock, { note })
   return updated

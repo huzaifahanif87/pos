@@ -3,8 +3,8 @@ import { Plus, Search, Pencil, Trash2, PackageX, Boxes, FileDown, Layers, Slider
 import type { Category, Product } from '@shared/types'
 import { api } from '../lib/api'
 import { useApp } from '../store/app'
-import { money, num } from '../lib/format'
-import { Modal, Field, Badge, EmptyState, StatCard, Spinner } from '../components/ui'
+import { money, num, qty, isDecimalUnit } from '../lib/format'
+import { Modal, Field, Badge, EmptyState, StatCard, Spinner, NumberInput } from '../components/ui'
 import { exportExcel, exportPDF, exportCSV, type Column } from '../lib/export'
 
 const COLUMNS: Column[] = [
@@ -152,9 +152,9 @@ export default function Products() {
                         ) : p.stock <= 0 ? (
                           <Badge tone="red">Out</Badge>
                         ) : p.stock <= p.lowStockThreshold ? (
-                          <Badge tone="amber">{num(p.stock)} low</Badge>
+                          <Badge tone="amber">{qty(p.stock)} {p.unit} low</Badge>
                         ) : (
-                          <span>{num(p.stock)}</span>
+                          <span>{qty(p.stock)} <span className="text-gray-400">{p.unit}</span></span>
                         )}
                       </td>
                       <td className="td">
@@ -229,6 +229,7 @@ function ProductForm({
     ...product
   })
   const set = (k: keyof Product, v: unknown) => setForm((f) => ({ ...f, [k]: v }))
+  const dec = form.allowDecimal ?? isDecimalUnit(form.unit)
 
   const save = async () => {
     if (!form.name?.trim()) return toast('error', 'Name is required')
@@ -266,18 +267,27 @@ function ProductForm({
           </select>
         </Field>
         <Field label="Unit">
-          <select className="input" value={form.unit ?? 'pcs'} onChange={(e) => set('unit', e.target.value)}>
-            {['pcs', 'kg', 'g', 'ltr', 'ml', 'box', 'pack', 'dozen'].map((u) => <option key={u}>{u}</option>)}
+          <select
+            className="input"
+            value={form.unit ?? 'pcs'}
+            onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value, allowDecimal: isDecimalUnit(e.target.value) }))}
+          >
+            {['pcs', 'kg', 'g', 'ltr', 'ml', 'box', 'pack', 'dozen', 'm', 'cm'].map((u) => <option key={u}>{u}</option>)}
           </select>
         </Field>
-        <Field label="Cost Price"><input type="number" className="input" value={form.costPrice ?? ''} onChange={(e) => set('costPrice', Number(e.target.value))} /></Field>
-        <Field label="Sale Price"><input type="number" className="input" value={form.salePrice ?? ''} onChange={(e) => set('salePrice', Number(e.target.value))} /></Field>
-        <Field label="Tax Rate (%)"><input type="number" className="input" value={form.taxRate ?? 0} onChange={(e) => set('taxRate', Number(e.target.value))} /></Field>
-        <Field label="Opening / Current Stock"><input type="number" className="input" value={form.stock ?? 0} onChange={(e) => set('stock', Number(e.target.value))} /></Field>
-        <Field label="Low Stock Alert At"><input type="number" className="input" value={form.lowStockThreshold ?? 5} onChange={(e) => set('lowStockThreshold', Number(e.target.value))} /></Field>
-        <div className="col-span-2 flex gap-6 pt-1">
+        <Field label="Cost Price"><NumberInput value={form.costPrice ?? 0} onChange={(n) => set('costPrice', n)} /></Field>
+        <Field label="Sale Price"><NumberInput value={form.salePrice ?? 0} onChange={(n) => set('salePrice', n)} /></Field>
+        <Field label="Tax Rate (%)"><NumberInput value={form.taxRate ?? 0} onChange={(n) => set('taxRate', n)} /></Field>
+        <Field label={`Opening / Current Stock (${form.unit ?? 'pcs'})`}>
+          <NumberInput value={form.stock ?? 0} allowDecimal={dec} onChange={(n) => set('stock', n)} />
+        </Field>
+        <Field label="Low Stock Alert At"><NumberInput value={form.lowStockThreshold ?? 5} allowDecimal={dec} onChange={(n) => set('lowStockThreshold', n)} /></Field>
+        <div className="col-span-2 flex flex-wrap gap-x-6 gap-y-2 pt-1">
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={form.trackStock ?? true} onChange={(e) => set('trackStock', e.target.checked)} /> Track stock
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={dec} onChange={(e) => set('allowDecimal', e.target.checked)} /> Sold by weight/volume (allow decimal qty)
           </label>
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={form.active ?? true} onChange={(e) => set('active', e.target.checked)} /> Active (sellable)
@@ -290,10 +300,11 @@ function ProductForm({
 
 function AdjustStock({ product, onClose, onSaved }: { product: Product; onClose: () => void; onSaved: () => void }) {
   const { toast } = useApp()
-  const [qty, setQty] = useState(product.stock)
+  const [count, setCount] = useState(product.stock)
   const [note, setNote] = useState('')
+  const dec = product.allowDecimal ?? isDecimalUnit(product.unit)
   const save = async () => {
-    await api.adjustStock(product._id, qty, note || 'Manual adjustment')
+    await api.adjustStock(product._id, count, note || 'Manual adjustment')
     toast('success', 'Stock adjusted')
     onSaved()
   }
@@ -305,8 +316,8 @@ function AdjustStock({ product, onClose, onSaved }: { product: Product; onClose:
       </>
     }>
       <div className="space-y-4">
-        <p className="text-sm text-gray-500">Current stock: <span className="font-semibold text-gray-900">{num(product.stock)} {product.unit}</span></p>
-        <Field label="New Stock Count"><input type="number" className="input" value={qty} onChange={(e) => setQty(Number(e.target.value))} autoFocus /></Field>
+        <p className="text-sm text-gray-500">Current stock: <span className="font-semibold text-gray-900">{qty(product.stock)} {product.unit}</span></p>
+        <Field label={`New Stock Count (${product.unit})`}><NumberInput value={count} allowDecimal={dec} onChange={setCount} autoFocus /></Field>
         <Field label="Reason / Note"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. damaged, recount, stock take" /></Field>
       </div>
     </Modal>

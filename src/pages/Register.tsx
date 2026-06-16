@@ -17,9 +17,9 @@ import type { Customer, Product, Sale } from '@shared/types'
 import { api } from '../lib/api'
 import { useCart } from '../store/cart'
 import { useApp } from '../store/app'
-import { money } from '../lib/format'
+import { money, qty, isDecimalUnit } from '../lib/format'
 import { exportReceiptPDF } from '../lib/export'
-import { Modal, Badge, EmptyState } from '../components/ui'
+import { Modal, Badge, EmptyState, NumberInput } from '../components/ui'
 import clsx from 'clsx'
 
 export default function Register() {
@@ -103,7 +103,9 @@ export default function Register() {
           discount: i.discount,
           taxRate: i.taxRate,
           stock: prod?.stock ?? 0,
-          trackStock: prod?.trackStock ?? true
+          trackStock: prod?.trackStock ?? true,
+          unit: prod?.unit ?? 'pcs',
+          allowDecimal: prod?.allowDecimal ?? isDecimalUnit(prod?.unit)
         }
       }),
       sale.customerId,
@@ -170,7 +172,7 @@ export default function Register() {
                   <span className="text-sm font-bold text-gray-900">{money(p.salePrice)}</span>
                   {p.trackStock && (
                     <span className={clsx('text-xs', p.stock <= p.lowStockThreshold ? 'text-amber-600' : 'text-gray-400')}>
-                      {p.stock}
+                      {qty(p.stock)} {p.unit}
                     </span>
                   )}
                 </div>
@@ -208,7 +210,7 @@ export default function Register() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-gray-900">{l.name}</p>
-                      <p className="text-xs text-gray-400">{money(l.price)} each</p>
+                      <p className="text-xs text-gray-400">{money(l.price)} / {l.unit}{l.allowDecimal ? ' · by weight' : ''}</p>
                     </div>
                     <button className="text-gray-400 hover:text-rose-600" onClick={() => cart.remove(l.productId)}>
                       <Trash2 size={15} />
@@ -219,10 +221,11 @@ export default function Register() {
                       <button className="grid h-7 w-7 place-items-center rounded-lg bg-gray-200 hover:bg-gray-300" onClick={() => cart.setQty(l.productId, l.qty - 1)}>
                         <Minus size={13} />
                       </button>
-                      <input
-                        className="w-12 rounded-lg bg-white px-1 py-1 text-center text-sm"
+                      <NumberInput
+                        className="w-16 rounded-lg border border-gray-300 bg-white px-1 py-1 text-center text-sm"
                         value={l.qty}
-                        onChange={(e) => cart.setQty(l.productId, Number(e.target.value) || 0)}
+                        allowDecimal={l.allowDecimal}
+                        onChange={(n) => cart.setQty(l.productId, n)}
                       />
                       <button className="grid h-7 w-7 place-items-center rounded-lg bg-gray-200 hover:bg-gray-300" onClick={() => cart.setQty(l.productId, l.qty + 1)}>
                         <Plus size={13} />

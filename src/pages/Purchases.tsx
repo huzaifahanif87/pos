@@ -3,8 +3,8 @@ import { Plus, Trash2, ClipboardList, FileDown, Eye, Search } from 'lucide-react
 import type { Product, Purchase, PurchaseItem, Vendor } from '@shared/types'
 import { api } from '../lib/api'
 import { useApp } from '../store/app'
-import { money, dt, num } from '../lib/format'
-import { Modal, Field, Badge, EmptyState, StatCard, Spinner } from '../components/ui'
+import { money, dt, num, isDecimalUnit } from '../lib/format'
+import { Modal, Field, Badge, EmptyState, StatCard, Spinner, NumberInput } from '../components/ui'
 import { exportPDF, type Column } from '../lib/export'
 
 export default function Purchases() {
@@ -178,15 +178,18 @@ function PurchaseForm({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         <table className="w-full text-sm">
           <thead className="border-b border-gray-200"><tr><th className="th">Item</th><th className="th">Qty</th><th className="th">Cost</th><th className="th text-right">Total</th><th className="th"></th></tr></thead>
           <tbody className="divide-y divide-gray-200">
-            {lines.map((l) => (
+            {lines.map((l) => {
+              const prod = products.find((p) => p._id === l.productId)
+              const dec = prod?.allowDecimal ?? isDecimalUnit(prod?.unit)
+              return (
               <tr key={l.productId}>
-                <td className="td">{l.name}</td>
-                <td className="td"><input type="number" className="w-16 rounded-lg bg-gray-100 px-2 py-1" value={l.qty} onChange={(e) => upd(l.productId, { qty: Number(e.target.value) })} /></td>
-                <td className="td"><input type="number" className="w-20 rounded-lg bg-gray-100 px-2 py-1" value={l.costPrice} onChange={(e) => upd(l.productId, { costPrice: Number(e.target.value) })} /></td>
+                <td className="td">{l.name}<span className="ml-1 text-xs text-gray-400">/ {prod?.unit ?? 'pcs'}</span></td>
+                <td className="td"><NumberInput className="w-20 rounded-lg border border-gray-300 bg-white px-2 py-1" value={l.qty} allowDecimal={dec} onChange={(n) => upd(l.productId, { qty: n })} /></td>
+                <td className="td"><NumberInput className="w-24 rounded-lg border border-gray-300 bg-white px-2 py-1" value={l.costPrice} onChange={(n) => upd(l.productId, { costPrice: n })} /></td>
                 <td className="td text-right">{money(l.lineTotal)}</td>
                 <td className="td"><button className="text-gray-400 hover:text-rose-600" onClick={() => setLines(lines.filter((x) => x.productId !== l.productId))}><Trash2 size={15} /></button></td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       )}

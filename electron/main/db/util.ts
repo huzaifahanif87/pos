@@ -28,6 +28,16 @@ export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100
 }
 
+/** Quantity precision — 3 decimals so weighed items (e.g. 0.125 kg) stay accurate. */
+export function round3(n: number): number {
+  return Math.round((n + Number.EPSILON) * 1000) / 1000
+}
+
+const DECIMAL_UNITS = new Set(['kg', 'g', 'ltr', 'l', 'ml', 'm', 'cm', 'gram', 'litre', 'liter'])
+export function isDecimalUnit(unit: string | undefined): boolean {
+  return unit ? DECIMAL_UNITS.has(unit.toLowerCase()) : false
+}
+
 export function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

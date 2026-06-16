@@ -28,6 +28,16 @@ export function num(n: number | undefined | null, digits = 0): string {
   })
 }
 
+/** Quantity formatter: shows up to 3 decimals, trimming trailing zeros (e.g. 1.5, 0.25, 40). */
+export function qty(n: number | undefined | null): string {
+  return Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 })
+}
+
+const DECIMAL_UNITS = new Set(['kg', 'g', 'ltr', 'l', 'ml', 'm', 'cm', 'gram', 'litre', 'liter'])
+export function isDecimalUnit(unit: string | undefined): boolean {
+  return unit ? DECIMAL_UNITS.has(unit.toLowerCase()) : false
+}
+
 export function pct(n: number | undefined | null): string {
   const v = Number(n ?? 0)
   return `${v > 0 ? '+' : ''}${v.toFixed(1)}%`
